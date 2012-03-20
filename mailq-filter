@@ -1,0 +1,141 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+use Pod::Usage;
+
+
+GetOptions(
+    'from=s'    => \my $opt_from,
+    'to=s'      => \my $opt_to,
+    'regex=s'   => \my $opt_regex,
+    'count'     => \my $opt_count,
+    verbose     => \my $verbose,
+    help        => sub { pod2usage(0); },
+) || exit(1);
+
+$opt_from  = $opt_to = '^' if $opt_count;
+
+$|++;
+main();
+
+exit 0;
+
+
+sub main {
+    open my $mailq, '-|', 'mailq' or die $!;
+    local $/  = "\n\n";
+    my $total  = 0;
+    my $matched = 0;
+    my $count = {};
+
+    while ( defined(my $record = <$mailq>) ) {
+        if ( $record =~ /^Mail queue is empty/ ) {
+           print STDERR $record;
+           close $mailq;
+           return;
+        }
+
+        my @lines = split "\n", $record;
+        my $header = $lines[0];
+        next if $header =~ /^-/;
+        $total++;
+
+        my ( $qid, $from_addr ) = (split ' ', $header)[0,-1];
+        $qid =~ s/\*//;
+
+        if ( $opt_from ) {
+            $count->{$from_addr}->{'__total'}++;
+            next unless $from_addr =~ /$opt_from/oi;
+        }
+
+        if ( $opt_to ) {
+            my @to_addrs =
+                map{ $count->{$from_addr}->{$_}++; $_; }
+                map{ $_ =~ s/\s+//; chomp $_; $_ }
+                grep{ $_ =~ /^\s{20,}[^\s]+$/ }
+                @lines[2 .. $#lines];
+            next unless grep /$opt_to/oi, @to_addrs;
+        }
+
+        if ( $opt_regex ) {
+            next unless grep /$opt_regex/oismx, $record;
+        }
+
+        $matched++;
+        next if $opt_count;
+
+        print STDERR $record if $verbose;
+        print $qid, "\n";
+    }
+
+    close $mailq;
+
+    if ( $opt_count ) {
+        my @from_sorted =
+                sort { $count->{$b}->{__total} <=>  $count->{$a}->{__total} }
+                keys %$count;
+
+        for my $from ( @from_sorted ) {
+            printf "%d %s\n", $count->{$from}->{__total}, $from;
+            next unless $verbose;
+
+            my @to_sorted =
+              sort { $count->{$from}->{$b} <=>  $count->{$from}->{$a} }
+              keys %{ $count->{$from} };
+
+            for my $to ( @to_sorted ) {
+                next if $to eq '__total';
+                printf "    %d %s\n", $count->{$from}->{$to}, $to;
+            }
+        }
+        printf "\n-- total %d\n", $total;
+    }
+    else {
+        printf STDERR "\n-- matched %d/%d\n", $matched, $total;
+    }
+}
+
+
+__END__
+
+=head1 NAME
+
+mailq-filter
+
+=head1 SYNOPSIS
+
+  maqilq-filter [--from regex] [--to regex] [--regex regex] [--verbose]
+
+  mailq-filter opts.. | postsuper -d -
+
+  mailq-filter --count [-v]
+
+=head1 DESCRIPTION
+
+mailqをフィルタリングするやつ。特定のキュー削除するのが楽になる。
+
+mailqコマンドの出力から、To、From、mailqのレコード単位、もしくはそれらの組み合わせ(積集合)でキューをフィルタリングできます。
+
+レコード単位でひっかける場合だけ、正規表現のxsmiオプションが使われます。他はi(ignore case)だけ。
+
+通常はキューIDのみSTDOUTに出力しますが、-v付けるとマッチしたレコード全体もSTDERRに出力します。さきに-vで確認してから、パイプでpostsuper -dに食わすと安心です。
+STDOUTに出すのはあくまでキューIDだけなので、-v削らずにそのままパイプに渡せばOKです。
+
+
+--countオプションってのを後付けしました。Fromアドレスでカウントして降順で出 力します。-v付けるとToの内訳も出ます。
+
+
+=head1 AUTHOR
+
+Ryo Kuroda <lamanotrama at gmail.com>
+
+=head1 LICENSE
+
+Copyright (C) Ryo Kuroda
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
