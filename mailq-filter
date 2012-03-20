@@ -54,7 +54,6 @@ sub main {
             my @to_addrs =
                 map{ $count->{$from_addr}->{$_}++; $_; }
                 map{ $_ =~ s/\s+//; chomp $_; $_ }
-                grep{ $_ =~ /^\s{20,}[^\s]+$/ }
                 @lines[2 .. $#lines];
             next unless grep /$opt_to/oi, @to_addrs;
         }
