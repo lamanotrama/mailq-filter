@@ -1,1 +1,39 @@
-/home/lamanotrama/git/mailq-filter/mailq-filter
+=head1 NAME
+
+mailq-filter
+
+=head1 SYNOPSIS
+
+  maqilq-filter [--from regex] [--to regex] [--regex regex] [--verbose]
+
+  mailq-filter opts.. | postsuper -d -
+
+  mailq-filter --count [-v]
+
+=head1 DESCRIPTION
+
+mailqをフィルタリングするやつ。特定のキュー削除するのが楽になる。
+
+mailqコマンドの出力から、To、From、mailqのレコード単位、もしくはそれらの組み合わせ(積集合)でキューをフィルタリングできます。
+
+レコード単位でひっかける場合だけ、正規表現のxsmiオプションが使われます。他はi(ignore case)だけ。
+
+通常はキューIDのみSTDOUTに出力しますが、-v付けるとマッチしたレコード全体もSTDERRに出力します。さきに-vで確認してから、パイプでpostsuper -dに食わすと安心です。
+STDOUTに出すのはあくまでキューIDだけなので、-v削らずにそのままパイプに渡せばOKです。
+
+
+--countオプションってのを後付けしました。Fromアドレスでカウントして降順で出 力します。-v付けるとToの内訳も出ます。
+
+
+=head1 AUTHOR
+
+Ryo Kuroda <lamanotrama at gmail.com>
+
+=head1 LICENSE
+
+Copyright (C) Ryo Kuroda
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
